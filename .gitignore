@@ -1,0 +1,5 @@
+.idea
+target
+*.o
+*.a
+clips-sys/clips_core_source_630/core/clips

@@ -1,0 +1,8 @@
+[package]
+name = "clips-sys"
+version = "0.1.0"
+authors = ["Yurii Rashkovskii <yrashk@gmail.com>"]
+
+build = "build.rs"
+
+[dependencies]

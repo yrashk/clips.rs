@@ -1,0 +1,8 @@
+[package]
+name = "clips"
+version = "0.1.0"
+authors = ["Yurii Rashkovskii <yrashk@gmail.com>"]
+
+[dependencies]
+clips-sys = { path = "../clips-sys" }
+enum_primitive = "0.1"
