@@ -79,6 +79,8 @@ impl Environment {
         }
     }
 
+    /// Loads a set of constructs into the CLIPS data base (the equivalent
+    /// of the CLIPS load command).
     pub fn load<P: AsRef<Path>>(&self, file: P) -> Result<(), LoadError> {
         let c_string = CString::new(file.as_ref().to_str().unwrap()).unwrap();
         let return_code = unsafe {
