@@ -137,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn load_loading_erro() {
+    fn load_loading_error() {
         let env = Environment::new().unwrap();
         let content = r#"
         (deffunction test () 1
