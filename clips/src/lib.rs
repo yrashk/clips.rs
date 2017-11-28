@@ -1,6 +1,7 @@
 extern crate clips_sys as sys;
 #[macro_use] extern crate enum_primitive;
-
+#[macro_use] extern crate derive_error;
+#[cfg(test)] extern crate tempfile;
 
 use std::ffi::CString;
 
@@ -10,6 +11,7 @@ pub struct DataObject {
 }
 
 use enum_primitive::FromPrimitive;
+
 enum_from_primitive! {
 /// Native CLIPS data types
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -40,6 +42,17 @@ pub struct Environment {
     env: *mut ::std::os::raw::c_void,
 }
 
+enum_from_primitive! {
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Error)]
+pub enum LoadError {
+    FileError = 0,
+    LoadingError = -1,
+}
+}
+
+
+use std::path::Path;
+
 impl Environment {
 
     /// Creates a new environment and initializes it
@@ -66,6 +79,16 @@ impl Environment {
         }
     }
 
+    pub fn load<P: AsRef<Path>>(&self, file: P) -> Result<(), LoadError> {
+        let c_string = CString::new(file.as_ref().to_str().unwrap()).unwrap();
+        let return_code = unsafe {
+            sys::EnvLoad(self.env, c_string.as_ptr())
+        };
+        match return_code {
+            1 => Ok(()),
+            code => Err(LoadError::from_i32(code).unwrap()),
+        }
+    }
 
 }
 
@@ -84,5 +107,42 @@ mod tests {
     fn sanity_check() {
         assert_eq!(Environment::new().unwrap().eval("\"a\"").unwrap().data_type(),
                    Type::String);
+    }
+
+    use tempfile;
+    use std::io::Write;
+
+    #[test]
+    fn load() {
+        let env = Environment::new().unwrap();
+        let content = r#"
+        (deffunction test () 1)
+        "#;
+
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        file.write(content.as_bytes()).unwrap();
+
+        env.load(file.path()).unwrap();
+
+        assert_eq!(env.eval("(test)").unwrap().data_type(), Type::Integer);
+    }
+
+    #[test]
+    fn load_file_error() {
+        let env = Environment::new().unwrap();
+        assert_eq!(env.load(Path::new("no_such_file")).unwrap_err(), LoadError::FileError);
+    }
+
+    #[test]
+    fn load_loading_erro() {
+        let env = Environment::new().unwrap();
+        let content = r#"
+        (deffunction test () 1
+        "#;
+
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        file.write(content.as_bytes()).unwrap();
+
+        assert_eq!(env.load(file.path()).unwrap_err(), LoadError::LoadingError);
     }
 }
