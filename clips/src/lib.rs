@@ -88,7 +88,8 @@ impl Environment {
         };
         match return_code {
             1 => Ok(()),
-            code => Err(LoadError::from_i32(code).unwrap()),
+            code @ -1 ... 0 => Err(LoadError::from_i32(code).unwrap()),
+            err => panic!("unexpected return code {}", err),
         }
     }
 
