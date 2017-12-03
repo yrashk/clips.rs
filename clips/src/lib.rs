@@ -99,6 +99,8 @@ impl Environment {
         }
     }
 
+    /// Loads a set of constructs into the CLIPS database from a memory-based
+    /// source (as opposed to an existing file)
     pub fn load_bytes<B: AsRef<[u8]>>(&self, bytes: B) -> Result<(), LoadError> {
         let mut file = tempfile::NamedTempFile::new()?;
         use std::io::Write;
