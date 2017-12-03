@@ -1,7 +1,7 @@
 extern crate clips_sys as sys;
 #[macro_use] extern crate enum_primitive;
 #[macro_use] extern crate derive_error;
-#[cfg(test)] extern crate tempfile;
+extern crate tempfile;
 
 use std::ffi::CString;
 
@@ -50,6 +50,12 @@ pub enum LoadError {
 }
 }
 
+use std::io;
+impl From<io::Error> for LoadError {
+    fn from(_: io::Error) -> Self {
+        LoadError::FileError
+    }
+}
 
 use std::path::Path;
 
@@ -91,6 +97,14 @@ impl Environment {
             code @ -1 ... 0 => Err(LoadError::from_i32(code).unwrap()),
             err => panic!("unexpected return code {}", err),
         }
+    }
+
+    pub fn load_bytes<B: AsRef<[u8]>>(&self, bytes: B) -> Result<(), LoadError> {
+        let mut file = tempfile::NamedTempFile::new()?;
+        use std::io::Write;
+        file.write(bytes.as_ref())?;
+        file.flush()?;
+        self.load(file.path())
     }
 
 }
@@ -147,5 +161,16 @@ mod tests {
         file.write(content.as_bytes()).unwrap();
 
         assert_eq!(env.load(file.path()).unwrap_err(), LoadError::LoadingError);
+    }
+
+    #[test]
+    fn load_bytes() {
+        let env = Environment::new().unwrap();
+        let content = r#"
+        (deffunction test () 1)
+        "#;
+
+        env.load_bytes(content).unwrap();
+        assert_eq!(env.eval("(test)").unwrap().data_type(), Type::Integer);
     }
 }
