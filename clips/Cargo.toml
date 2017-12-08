@@ -7,6 +7,6 @@ authors = ["Yurii Rashkovskii <yrashk@gmail.com>"]
 clips-sys = { path = "../clips-sys" }
 enum_primitive = "0.1"
 derive-error = "0.0.4"
-tempfile = "2.2"
 
 [dev-dependencies]
+tempfile = "2.2"

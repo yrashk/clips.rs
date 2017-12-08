@@ -1,14 +1,14 @@
 extern crate clips_sys as sys;
 #[macro_use] extern crate enum_primitive;
 #[macro_use] extern crate derive_error;
-extern crate tempfile;
+#[cfg(test)] extern crate tempfile;
 
 use std::ffi::CString;
 
-/// This structure holds a native CLIPS data object
-pub struct DataObject {
-    object: sys::DATA_OBJECT,
-}
+/// Owned CLIPS value
+pub struct Value(sys::CLIPSValue);
+/// Referenced CLIPS value
+pub struct Val(*const sys::CLIPSValue);
 
 use enum_primitive::FromPrimitive;
 
@@ -16,46 +16,60 @@ enum_from_primitive! {
 /// Native CLIPS data types
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Type {
-  Float = 0,
-  Integer = 1,
-  Symbol = 2,
-  String = 3,
-  Multifield = 4,
-  ExternalAddress = 5,
-  FactAddress = 6,
-  InstanceAddress = 7,
-  InstanceName = 8,
+    Float = sys::FLOAT_TYPE as isize,
+    Integer = sys::INTEGER_TYPE as isize,
+    Symbol = sys::SYMBOL_TYPE as isize,
+    String = sys::STRING_TYPE as isize,
+    Multifield = sys::MULTIFIELD_TYPE as isize,
+    ExternalAddress = sys::EXTERNAL_ADDRESS_TYPE as isize,
+    FactAddress = sys::FACT_ADDRESS_TYPE as isize,
+    InstanceAddress = sys::INSTANCE_ADDRESS_TYPE as isize,
+    InstanceName = sys::INSTANCE_NAME_TYPE as isize,
+    Void = sys::VOID_TYPE as isize,
+    Bitmap = sys::BITMAP_TYPE as isize,
 }
 }
 
-impl DataObject {
+/// Trait for CLIPS value types
+pub trait ValueTrait {
+    /// Value's type
+    fn type_of(&self) -> Type;
+}
 
-    /// Returns data object's type
-    pub fn data_type(&self) -> Type {
-        Type::from_u16(self.object.type_).unwrap()
+impl ValueTrait for Value {
+    fn type_of(&self) -> Type {
+        unsafe { Type::from_u16((*self.0.__bindgen_anon_1.header).type_).unwrap() }
+    }
+}
+
+impl ValueTrait for Val {
+    fn type_of(&self) -> Type {
+        unsafe { Type::from_u16((* (*self.0).__bindgen_anon_1.header).type_).unwrap() }
     }
 }
 
 /// CLIPS environment. Vast majority of APIs is only
 /// available through an environment
 pub struct Environment {
-    env: *mut ::std::os::raw::c_void,
+    env: *mut ::sys::environmentData,
 }
 
 enum_from_primitive! {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Error)]
 pub enum LoadError {
-    FileError = 0,
-    LoadingError = -1,
+    OpenFileError = sys::LoadError::LE_OPEN_FILE_ERROR as isize,
+    ParsingError = sys::LoadError::LE_PARSING_ERROR as isize,
 }
 }
 
-use std::io;
-impl From<io::Error> for LoadError {
-    fn from(_: io::Error) -> Self {
-        LoadError::FileError
-    }
+enum_from_primitive! {
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Error)]
+pub enum EvalError {
+    ParsingError = sys::EvalError::EE_PARSING_ERROR as isize,
+    ProcessingError = sys::EvalError::EE_PROCESSING_ERROR as isize,
 }
+}
+
 
 use std::path::Path;
 
@@ -74,14 +88,15 @@ impl Environment {
     }
 
     /// Allows an expression to be evaluated
-    pub fn eval<S: AsRef<str>>(&self, expr: S) -> Result<DataObject, ()> {
+    pub fn eval<S: AsRef<str>>(&self, expr: S) -> Result<Value, EvalError> {
         let c_string = CString::new(expr.as_ref()).unwrap();
-        let mut data_object : DataObject = unsafe { ::std::mem::zeroed() };
-        let return_code = unsafe { sys::EnvEval(self.env, c_string.as_ptr(), &mut data_object.object) };
+        let mut val : Value = unsafe { ::std::mem::zeroed() };
+        let return_code = unsafe {
+            sys::Eval(self.env, c_string.as_ptr(), &mut val.0)
+        };
         match return_code {
-            1 => Ok(data_object),
-            0 => Err(()),
-            err => panic!("unexpected return code {}", err),
+            sys::EvalError::EE_NO_ERROR => Ok(val),
+            err => Err(EvalError::from_isize(err as isize).expect("valid return code")),
         }
     }
 
@@ -90,23 +105,26 @@ impl Environment {
     pub fn load<P: AsRef<Path>>(&self, file: P) -> Result<(), LoadError> {
         let c_string = CString::new(file.as_ref().to_str().unwrap()).unwrap();
         let return_code = unsafe {
-            sys::EnvLoad(self.env, c_string.as_ptr())
+            sys::Load(self.env, c_string.as_ptr())
         };
         match return_code {
-            1 => Ok(()),
-            code @ -1 ... 0 => Err(LoadError::from_i32(code).unwrap()),
-            err => panic!("unexpected return code {}", err),
+            sys::LoadError::LE_NO_ERROR => Ok(()),
+            err => Err(LoadError::from_isize(err as isize).expect("valid return code")),
         }
     }
 
     /// Loads a set of constructs into the CLIPS database from a memory-based
     /// source (as opposed to an existing file)
-    pub fn load_bytes<B: AsRef<[u8]>>(&self, bytes: B) -> Result<(), LoadError> {
-        let mut file = tempfile::NamedTempFile::new()?;
-        use std::io::Write;
-        file.write(bytes.as_ref())?;
-        file.flush()?;
-        self.load(file.path())
+    pub fn load_string<S: AsRef<str>>(&self, str: S) -> Result<(), ()> {
+        let c_string = CString::new(str.as_ref()).unwrap();
+        let success = unsafe {
+           sys::LoadFromString(self.env, c_string.as_ptr(), str.as_ref().as_bytes().len())
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 
 }
@@ -124,7 +142,7 @@ mod tests {
 
     #[test]
     fn sanity_check() {
-        assert_eq!(Environment::new().unwrap().eval("\"a\"").unwrap().data_type(),
+        assert_eq!(Environment::new().unwrap().eval("\"a\"").unwrap().type_of(),
                    Type::String);
     }
 
@@ -143,13 +161,13 @@ mod tests {
 
         env.load(file.path()).unwrap();
 
-        assert_eq!(env.eval("(test)").unwrap().data_type(), Type::Integer);
+        assert_eq!(env.eval("(test)").unwrap().type_of(), Type::Integer);
     }
 
     #[test]
     fn load_file_error() {
         let env = Environment::new().unwrap();
-        assert_eq!(env.load(Path::new("no_such_file")).unwrap_err(), LoadError::FileError);
+        assert_eq!(env.load(Path::new("no_such_file")).unwrap_err(), LoadError::OpenFileError);
     }
 
     #[test]
@@ -162,17 +180,17 @@ mod tests {
         let mut file = tempfile::NamedTempFile::new().unwrap();
         file.write(content.as_bytes()).unwrap();
 
-        assert_eq!(env.load(file.path()).unwrap_err(), LoadError::LoadingError);
+        assert_eq!(env.load(file.path()).unwrap_err(), LoadError::ParsingError);
     }
 
     #[test]
-    fn load_bytes() {
+    fn load_string() {
         let env = Environment::new().unwrap();
         let content = r#"
         (deffunction test () 1)
         "#;
 
-        env.load_bytes(content).unwrap();
-        assert_eq!(env.eval("(test)").unwrap().data_type(), Type::Integer);
+        env.load_string(content).unwrap();
+        assert_eq!(env.eval("(test)").unwrap().type_of(), Type::Integer);
     }
 }
