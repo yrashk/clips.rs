@@ -153,7 +153,7 @@ mod tests {
     #[test]
     pub fn symbol() {
         let env = Environment::new().unwrap();
-        assert_eq!("test".allocate(&env).type_of(), Type::String);
+        assert_eq!(Symbol("test").allocate(&env).type_of(), Type::Symbol);
     }
 
 
