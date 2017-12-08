@@ -3,56 +3,18 @@ extern crate clips_sys as sys;
 #[macro_use] extern crate derive_error;
 #[cfg(test)] extern crate tempfile;
 
+pub mod value;
+pub use value::{Type, Symbol, Value};
+
 use std::ffi::CString;
-
-/// Owned CLIPS value
-pub struct Value(sys::CLIPSValue);
-/// Referenced CLIPS value
-pub struct Val(*const sys::CLIPSValue);
-
-use enum_primitive::FromPrimitive;
-
-enum_from_primitive! {
-/// Native CLIPS data types
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Type {
-    Float = sys::FLOAT_TYPE as isize,
-    Integer = sys::INTEGER_TYPE as isize,
-    Symbol = sys::SYMBOL_TYPE as isize,
-    String = sys::STRING_TYPE as isize,
-    Multifield = sys::MULTIFIELD_TYPE as isize,
-    ExternalAddress = sys::EXTERNAL_ADDRESS_TYPE as isize,
-    FactAddress = sys::FACT_ADDRESS_TYPE as isize,
-    InstanceAddress = sys::INSTANCE_ADDRESS_TYPE as isize,
-    InstanceName = sys::INSTANCE_NAME_TYPE as isize,
-    Void = sys::VOID_TYPE as isize,
-    Bitmap = sys::BITMAP_TYPE as isize,
-}
-}
-
-/// Trait for CLIPS value types
-pub trait ValueTrait {
-    /// Value's type
-    fn type_of(&self) -> Type;
-}
-
-impl ValueTrait for Value {
-    fn type_of(&self) -> Type {
-        unsafe { Type::from_u16((*self.0.__bindgen_anon_1.header).type_).unwrap() }
-    }
-}
-
-impl ValueTrait for Val {
-    fn type_of(&self) -> Type {
-        unsafe { Type::from_u16((* (*self.0).__bindgen_anon_1.header).type_).unwrap() }
-    }
-}
 
 /// CLIPS environment. Vast majority of APIs is only
 /// available through an environment
 pub struct Environment {
-    env: *mut ::sys::environmentData,
+    pub(crate) env: *mut ::sys::environmentData,
 }
+
+use enum_primitive::FromPrimitive;
 
 enum_from_primitive! {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Error)]
