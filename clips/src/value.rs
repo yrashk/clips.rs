@@ -4,7 +4,7 @@ use sys;
 pub struct Value(pub(crate) sys::CLIPSValue);
 
 impl Value {
-    fn new(val: sys::clipsValue__bindgen_ty_1) -> Self {
+    pub(crate) fn new(val: sys::clipsValue__bindgen_ty_1) -> Self {
         Value(sys::CLIPSValue {
             __bindgen_anon_1: val
         })
@@ -86,11 +86,11 @@ macro_rules! impl_env_allocatable_for_float {
 impl_env_allocatable_for_float!(f32);
 impl_env_allocatable_for_float!(f64);
 
-impl EnvAllocatable for str {
+impl<'a> EnvAllocatable for &'a str {
 
   fn allocate(&self, env: &super::Environment) -> Value {
       use std::ffi::CString;
-      let c_str = CString::new(self).unwrap();
+      let c_str = CString::new(*self).unwrap();
       let str = unsafe {
           sys::CreateString(env.env, c_str.as_ptr())
       };

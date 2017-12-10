@@ -6,6 +6,9 @@ extern crate clips_sys as sys;
 pub mod value;
 pub use value::{Type, Symbol, Value};
 
+pub mod fact;
+pub use fact::FactBuilder;
+
 use std::ffi::CString;
 
 /// CLIPS environment. Vast majority of APIs is only
@@ -86,6 +89,16 @@ impl Environment {
             Ok(())
         } else {
             Err(())
+        }
+    }
+
+    pub fn new_fact_builder<S: AsRef<str>>(&self, template: S) -> FactBuilder {
+        FactBuilder::new(self, template)
+    }
+
+    pub fn number_of_facts(&self) -> usize {
+        unsafe {
+            sys::GetNumberOfFacts(self.env) as usize
         }
     }
 
