@@ -86,10 +86,11 @@ macro_rules! impl_env_allocatable_for_float {
 impl_env_allocatable_for_float!(f32);
 impl_env_allocatable_for_float!(f64);
 
+use std::ffi::CString;
+
 impl<'a> EnvAllocatable for &'a str {
 
   fn allocate(&self, env: &super::Environment) -> Value {
-      use std::ffi::CString;
       let c_str = CString::new(*self).unwrap();
       let str = unsafe {
           sys::CreateString(env.env, c_str.as_ptr())
@@ -105,8 +106,7 @@ pub struct Symbol<S: AsRef<str>>(pub S);
 impl<S: AsRef<str>> EnvAllocatable for Symbol<S> {
 
   fn allocate(&self, env: &super::Environment) -> Value {
-      use std::ffi::CString;
-      let c_str = CString::new(self.0.as_ref()).unwrap();
+     let c_str = CString::new(self.0.as_ref()).unwrap();
       let str = unsafe {
           sys::CreateSymbol(env.env, c_str.as_ptr())
       };
@@ -114,6 +114,22 @@ impl<S: AsRef<str>> EnvAllocatable for Symbol<S> {
           lexemeValue: str
       })
   }
+}
+
+impl EnvAllocatable for bool {
+
+    fn allocate(&self, env: &super::Environment) -> Value {
+        let c_str = match self {
+            &true => CString::new("TRUE").unwrap(),
+            &false => CString::new("FALSE").unwrap(),
+        };
+        let str = unsafe {
+            sys::CreateSymbol(env.env, c_str.as_ptr())
+        };
+        Value::new(sys::clipsValue__bindgen_ty_1 {
+            lexemeValue: str
+        })
+    }
 }
 
 
@@ -154,6 +170,13 @@ mod tests {
     pub fn symbol() {
         let env = Environment::new().unwrap();
         assert_eq!(Symbol("test").allocate(&env).type_of(), Type::Symbol);
+    }
+
+    #[test]
+    pub fn boolean() {
+        let env = Environment::new().unwrap();
+        assert_eq!(true.allocate(&env).type_of(), Type::Symbol);
+        assert_eq!(false.allocate(&env).type_of(), Type::Symbol);
     }
 
 
