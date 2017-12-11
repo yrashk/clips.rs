@@ -102,6 +102,22 @@ impl Environment {
         }
     }
 
+    /// Starts execution of rules.
+    /// It is the equivalent of the CLIPS `run` command
+    ///
+    /// If `limit` is `Some(n)`, the execution will cease
+    /// after `n` number of rule firings or when the agenda
+    /// contains no rule activations.
+    pub fn run(&self, limit: Option<usize>) -> usize{
+        let limit = match limit {
+            None => -1,
+            Some(n) => n as isize,
+        };
+        unsafe {
+            sys::Run(self.env, limit as i64) as usize
+        }
+    }
+
 }
 
 impl Drop for Environment {
@@ -167,5 +183,35 @@ mod tests {
 
         env.load_string(content).unwrap();
         assert_eq!(env.eval("(test)").unwrap().type_of(), Type::Integer);
+    }
+
+    #[test]
+    fn run_empty() {
+        let env = Environment::new().unwrap();
+        assert_eq!(env.run(None), 0);
+    }
+
+    #[test]
+    fn run_some() {
+        let env = Environment::new().unwrap();
+        env.load_string(r#"
+        (deftemplate tpl1)
+        (defrule rule1 (tpl1) => )
+        "#).unwrap();
+        let fb = env.new_fact_builder("tpl1");
+        fb.assert().unwrap();
+        assert_eq!(env.run(None), 1);
+    }
+
+    #[test]
+    fn run_limit() {
+        let env = Environment::new().unwrap();
+        env.load_string(r#"
+        (deftemplate tpl1)
+        (defrule rule1 (tpl1) => )
+        "#).unwrap();
+        let fb = env.new_fact_builder("tpl1");
+        fb.assert().unwrap();
+        assert_eq!(env.run(Some(0)), 0);
     }
 }
