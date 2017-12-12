@@ -4,7 +4,7 @@ extern crate clips_sys as sys;
 #[cfg(test)] extern crate tempfile;
 
 pub mod value;
-pub use value::{Type, Symbol, Value};
+pub use value::{Type, Symbol, Value, ValueAccess};
 
 pub mod fact;
 pub use fact::{Fact, FactBuilder};

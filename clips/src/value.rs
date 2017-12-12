@@ -1,4 +1,5 @@
 use sys;
+use std::ffi::{CStr, CString};
 
 /// CLIPS value
 pub struct Value(pub(crate) sys::CLIPSValue);
@@ -37,6 +38,70 @@ impl Value {
         unsafe { Type::from_u16((*self.0.__bindgen_anon_1.header).type_).unwrap() }
     }
 }
+
+/// Allows accessing typed values inside of `Value`,
+/// parametrized over resulting type `T`
+pub trait ValueAccess<T> {
+    /// Returns `Some(value)` if the type is compatible,
+    /// otherwise `None`
+    fn value(&self) -> Option<T>;
+}
+
+impl ValueAccess<i64> for Value {
+    fn value(&self) -> Option<i64> {
+        match self.type_of() {
+            Type::Integer => unsafe { Some((*self.0.__bindgen_anon_1.integerValue).contents) },
+            _ => None,
+        }
+    }
+}
+
+impl ValueAccess<f64> for Value {
+    fn value(&self) -> Option<f64> {
+        match self.type_of() {
+            Type::Float => unsafe { Some((*self.0.__bindgen_anon_1.floatValue).contents) },
+            _ => None,
+        }
+    }
+}
+
+impl<'a> ValueAccess<&'a str> for Value {
+    fn value(&self) -> Option<&'a str> {
+        match self.type_of() {
+            Type::String => {
+                let str = unsafe { (*self.0.__bindgen_anon_1.lexemeValue).contents };
+                let cstr = unsafe { CStr::from_ptr(str) };
+                Some(cstr.to_str().unwrap())
+            },
+            _ => None,
+        }
+    }
+}
+
+impl<'a> ValueAccess<Symbol<&'a str>> for Value {
+    fn value(&self) -> Option<Symbol<&'a str>> {
+        match self.type_of() {
+            Type::Symbol => {
+                let str = unsafe { (*self.0.__bindgen_anon_1.lexemeValue).contents };
+                let cstr = unsafe { CStr::from_ptr(str) };
+                Some(Symbol(cstr.to_str().unwrap()))
+            },
+            _ => None,
+        }
+    }
+}
+
+impl ValueAccess<bool> for Value {
+    fn value(&self) -> Option<bool> {
+        let symbol: Option<Symbol<&str>> = self.value();
+        symbol.and_then(|s| match s {
+            Symbol("TRUE") => Some(true),
+            Symbol("FALSE") => Some(false),
+            _ => None,
+        })
+    }
+}
+
 
 pub trait EnvAllocatable {
     fn allocate(&self, env: &super::Environment) -> Value;
@@ -86,7 +151,6 @@ macro_rules! impl_env_allocatable_for_float {
 impl_env_allocatable_for_float!(f32);
 impl_env_allocatable_for_float!(f64);
 
-use std::ffi::CString;
 
 impl<'a> EnvAllocatable for &'a str {
 
@@ -101,6 +165,7 @@ impl<'a> EnvAllocatable for &'a str {
   }
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub struct Symbol<S: AsRef<str>>(pub S);
 
 impl<S: AsRef<str>> EnvAllocatable for Symbol<S> {
@@ -154,10 +219,26 @@ mod tests {
     }
 
     #[test]
+    pub fn integer_value_access() {
+        let env = Environment::new().unwrap();
+        let val = 1u8.allocate(&env);
+        let access: i64 = val.value().unwrap();
+        assert_eq!(access, 1);
+    }
+
+    #[test]
     pub fn float() {
         let env = Environment::new().unwrap();
         assert_eq!(0f32.allocate(&env).type_of(), Type::Float);
         assert_eq!(0f64.allocate(&env).type_of(), Type::Float);
+    }
+
+    #[test]
+    pub fn float_value_access() {
+        let env = Environment::new().unwrap();
+        let val = 1f32.allocate(&env);
+        let access: f64 = val.value().unwrap();
+        assert_eq!(access, 1f64);
     }
 
     #[test]
@@ -167,9 +248,25 @@ mod tests {
     }
 
     #[test]
+    pub fn string_value_access() {
+        let env = Environment::new().unwrap();
+        let val = "test".allocate(&env);
+        let access: &str = val.value().unwrap();
+        assert_eq!(access, "test");
+    }
+
+    #[test]
     pub fn symbol() {
         let env = Environment::new().unwrap();
         assert_eq!(Symbol("test").allocate(&env).type_of(), Type::Symbol);
+    }
+
+    #[test]
+    pub fn symbol_value_access() {
+        let env = Environment::new().unwrap();
+        let val = Symbol("test").allocate(&env);
+        let access: Symbol<&str> = val.value().unwrap();
+        assert_eq!(access, Symbol("test"));
     }
 
     #[test]
@@ -177,6 +274,18 @@ mod tests {
         let env = Environment::new().unwrap();
         assert_eq!(true.allocate(&env).type_of(), Type::Symbol);
         assert_eq!(false.allocate(&env).type_of(), Type::Symbol);
+    }
+
+    #[test]
+    pub fn bool_value_access() {
+        let env = Environment::new().unwrap();
+        let val = true.allocate(&env);
+        let access: bool = val.value().unwrap();
+        assert!(access);
+        // invalid symbols lead to None
+        let val = Symbol("something").allocate(&env);
+        let access: Option<bool> = val.value();
+        assert!(access.is_none());
     }
 
 
