@@ -41,14 +41,14 @@ impl<'a> FactBuilder<'a> {
 
     /// Assume the fact, consuming the builder. Returns a result with
     /// the asserted fact.
-    pub fn assert(self) -> Result<Fact, ()> {
+    pub fn assert(self) -> Result<Fact<'a>, ()> {
         let fact_ptr = unsafe {
             sys::FBAssert(self.fb)
         };
         if fact_ptr.is_null() {
             Err(())
         } else {
-            Ok(Fact(fact_ptr))
+            Ok(Fact(fact_ptr, self.env))
         }
     }
 
@@ -68,9 +68,9 @@ impl<'a> Drop for FactBuilder<'a> {
     }
 }
 
-pub struct Fact(*mut sys::Fact);
+pub struct Fact<'a>(*mut sys::Fact, &'a Environment);
 
-impl Fact {
+impl<'a> Fact<'a> {
 
     /// Fact index
     pub fn index(&self) -> u64 {
@@ -90,9 +90,19 @@ impl Fact {
         }
     }
 
+
+    pub fn slot<S: AsRef<str>>(&self, name: S) -> Value {
+        let mut val : Value = unsafe { ::std::mem::zeroed() };
+        let c_string = CString::new(name.as_ref()).unwrap();
+        unsafe {
+            sys::FactSlotValue(self.1.env, self.0, c_string.as_ptr(), &mut val.0)
+        }
+        val
+    }
+
 }
 
-impl EnvAllocatable for Fact {
+impl<'a> EnvAllocatable for Fact<'a> {
     fn allocate(&self, _env: &super::Environment) -> Value {
         Value::new(sys::clipsValue__bindgen_ty_1 {
             factValue: self.0
@@ -152,6 +162,25 @@ mod tests {
         assert_eq!(env.number_of_facts(), 1);
         fact.retract().unwrap();
         assert_eq!(env.number_of_facts(), 0);
+    }
+
+    #[test]
+    fn access_fact_slot_value() {
+        let env = Environment::new().unwrap();
+        env.load_string(r#"
+        (deftemplate f1 (slot a) (slot b))
+        "#).unwrap();
+        assert_eq!(env.number_of_facts(), 0);
+        let fb = env.new_fact_builder("f1");
+        fb.put("a", 1).unwrap();
+        fb.put("b", "a").unwrap();
+        let fact = fb.assert().unwrap();
+        let val = fact.slot("a");
+        assert_eq!(val.type_of(), Type::Integer);
+        assert_eq!((val.value() as Option<i64>).unwrap(), 1);
+        let val = fact.slot("b");
+        assert_eq!(val.type_of(), Type::String);
+        assert_eq!((val.value() as Option<&str>).unwrap(), "a");
     }
 
 }
