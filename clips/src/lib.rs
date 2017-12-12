@@ -7,7 +7,7 @@ pub mod value;
 pub use value::{Type, Symbol, Value};
 
 pub mod fact;
-pub use fact::FactBuilder;
+pub use fact::{Fact, FactBuilder};
 
 use std::ffi::CString;
 
