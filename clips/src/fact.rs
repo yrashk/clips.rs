@@ -177,10 +177,10 @@ mod tests {
         let fact = fb.assert().unwrap();
         let val = fact.slot("a");
         assert_eq!(val.type_of(), Type::Integer);
-        assert_eq!((val.value() as Option<i64>).unwrap(), 1);
+        assert_eq!((ValueAccess::value(&val) as Option<i64>).unwrap(), 1);
         let val = fact.slot("b");
         assert_eq!(val.type_of(), Type::String);
-        assert_eq!((val.value() as Option<&str>).unwrap(), "a");
+        assert_eq!((ValueAccess::value(&val) as Option<&str>).unwrap(), "a");
     }
 
 }
