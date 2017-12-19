@@ -110,6 +110,92 @@ impl<'a> EnvAllocatable for Fact<'a> {
     }
 }
 
+pub struct Iter<'a> {
+    env: &'a Environment,
+    ptr: *mut sys::Fact,
+    end: bool,
+}
+
+impl<'a> Iter<'a> {
+    pub fn new(env: &'a Environment) -> Self {
+        Iter {
+            env,
+            ptr: ::std::ptr::null_mut(),
+            end: false,
+        }
+    }
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = Fact<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.end {
+            return None;
+        }
+        self.ptr = unsafe {
+            sys::GetNextFact(self.env.env, self.ptr)
+        };
+        if self.ptr.is_null() {
+            self.end = true;
+            None
+        } else {
+            Some(Fact(self.ptr, self.env))
+        }
+    }
+}
+
+pub struct TemplateIter<'a> {
+    env: &'a Environment,
+    ptr: *mut sys::Fact,
+    template: *mut sys::Deftemplate,
+    end: bool,
+}
+
+impl<'a> TemplateIter<'a> {
+    fn new(env: &'a Environment, template: *mut sys::Deftemplate) -> Self {
+        TemplateIter {
+            env,
+            ptr: ::std::ptr::null_mut(),
+            template,
+            end: false,
+        }
+    }
+}
+
+impl<'a> Iterator for TemplateIter<'a> {
+    type Item = Fact<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.end {
+            return None;
+        }
+        self.ptr = unsafe {
+            sys::GetNextFactInTemplate(self.template, self.ptr)
+        };
+        if self.ptr.is_null() {
+            self.end = true;
+            None
+        } else {
+            Some(Fact(self.ptr, self.env))
+        }
+    }
+}
+
+/// Represents a template (deftemplate)
+pub struct Template<'a> {
+    pub(crate) env: &'a Environment,
+    pub(crate) template: *mut sys::Deftemplate,
+}
+
+impl<'a> Template<'a> {
+
+    /// Returns an iterator over facts with this template
+    pub fn fact_iter(&self) -> TemplateIter {
+        TemplateIter::new(self.env, self.template)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::*;
@@ -175,6 +261,54 @@ mod tests {
         fb.put("a", 1).unwrap();
         fb.put("b", "a").unwrap();
         let fact = fb.assert().unwrap();
+        let val = fact.slot("a");
+        assert_eq!(val.type_of(), Type::Integer);
+        assert_eq!((ValueAccess::value(&val) as Option<i64>).unwrap(), 1);
+        let val = fact.slot("b");
+        assert_eq!(val.type_of(), Type::String);
+        assert_eq!((ValueAccess::value(&val) as Option<&str>).unwrap(), "a");
+    }
+
+    #[test]
+    fn fact_iterator() {
+        let env = Environment::new().unwrap();
+        env.load_string(r#"
+        (deftemplate f1 (slot a) (slot b))
+        "#).unwrap();
+        let fb = env.new_fact_builder("f1");
+        fb.put("a", 1).unwrap();
+        fb.put("b", "a").unwrap();
+        fb.assert().unwrap();
+        let mut facts : Vec<Fact> = env.fact_iter().collect();
+        assert_eq!(facts.len(), 1);
+        let fact = facts.pop().unwrap();
+        let val = fact.slot("a");
+        assert_eq!(val.type_of(), Type::Integer);
+        assert_eq!((ValueAccess::value(&val) as Option<i64>).unwrap(), 1);
+        let val = fact.slot("b");
+        assert_eq!(val.type_of(), Type::String);
+        assert_eq!((ValueAccess::value(&val) as Option<&str>).unwrap(), "a");
+    }
+
+    #[test]
+    fn template_fact_iterator() {
+        let env = Environment::new().unwrap();
+        env.load_string(r#"
+        (deftemplate f1 (slot a) (slot b))
+        (deftemplate f2 (slot a) (slot b))
+        "#).unwrap();
+        let fb = env.new_fact_builder("f1");
+        fb.put("a", 1).unwrap();
+        fb.put("b", "a").unwrap();
+        fb.assert().unwrap();
+        let fb = env.new_fact_builder("f2");
+        fb.put("a", 1).unwrap();
+        fb.put("b", "a").unwrap();
+        fb.assert().unwrap();
+        let template = env.find_template("f1").unwrap();
+        let mut facts : Vec<Fact> = template.fact_iter().collect();
+        assert_eq!(facts.len(), 1);
+        let fact = facts.pop().unwrap();
         let val = fact.slot("a");
         assert_eq!(val.type_of(), Type::Integer);
         assert_eq!((ValueAccess::value(&val) as Option<i64>).unwrap(), 1);

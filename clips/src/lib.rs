@@ -7,7 +7,7 @@ pub mod value;
 pub use value::{Type, Symbol, Value, ValueAccess};
 
 pub mod fact;
-pub use fact::{Fact, FactBuilder};
+pub use fact::{Fact, FactBuilder, Template};
 
 use std::ffi::CString;
 
@@ -101,6 +101,24 @@ impl Environment {
     pub fn number_of_facts(&self) -> usize {
         unsafe {
             sys::GetNumberOfFacts(self.env) as usize
+        }
+    }
+
+    /// Returns an iterator over all asserted facts
+    pub fn fact_iter(&self) -> fact::Iter {
+        fact::Iter::new(self)
+    }
+
+    /// Finds an iterator (if there's one by the given name)
+    pub fn find_template<S: AsRef<str>>(&self, template: S) -> Option<Template> {
+        let c_string = CString::new(template.as_ref()).unwrap();
+        let deftemplate =unsafe {
+            sys::FindDeftemplate(self.env, c_string.as_ptr())
+        };
+        if deftemplate.is_null() {
+            None
+        } else {
+            Some(Template { env: self, template: deftemplate })
         }
     }
 
@@ -215,5 +233,15 @@ mod tests {
         let fb = env.new_fact_builder("tpl1");
         fb.assert().unwrap();
         assert_eq!(env.run(Some(0)), 0);
+    }
+
+    #[test]
+    fn find_template() {
+        let env = Environment::new().unwrap();
+        env.load_string(r#"
+        (deftemplate tpl1)
+        "#).unwrap();
+        assert!(env.find_template("tpl1").is_some());
+        assert!(env.find_template("tpl2").is_none());
     }
 }
