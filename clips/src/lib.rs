@@ -92,10 +92,12 @@ impl Environment {
         }
     }
 
+    /// The main entry point for building new facts. Takes template name
     pub fn new_fact_builder<S: AsRef<str>>(&self, template: S) -> FactBuilder {
         FactBuilder::new(self, template)
     }
 
+    /// Returns the number of asserted facts
     pub fn number_of_facts(&self) -> usize {
         unsafe {
             sys::GetNumberOfFacts(self.env) as usize
