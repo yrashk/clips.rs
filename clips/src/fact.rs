@@ -194,6 +194,15 @@ impl<'a> Template<'a> {
     pub fn fact_iter(&self) -> TemplateIter {
         TemplateIter::new(self.env, self.template)
     }
+
+    /// Returns an iterator over facts with this template,
+    /// consuming the template itself.
+    ///
+    /// This is useful when the iterator needs to be
+    /// carried around independently of the template
+    pub fn into_fact_iter(self) -> TemplateIter<'a> {
+        TemplateIter::new(self.env, self.template)
+    }
 }
 
 #[cfg(test)]
@@ -315,6 +324,27 @@ mod tests {
         let val = fact.slot("b");
         assert_eq!(val.type_of(), Type::String);
         assert_eq!((ValueAccess::value(&val) as Option<&str>).unwrap(), "a");
+    }
+
+
+    #[test]
+    fn template_consuming_fact_iterator() {
+        let env = Environment::new().unwrap();
+        env.load_string(r#"
+        (deftemplate f1 (slot a) (slot b))
+        (deftemplate f2 (slot a) (slot b))
+        "#).unwrap();
+        let fb = env.new_fact_builder("f1");
+        fb.put("a", 1).unwrap();
+        fb.put("b", "a").unwrap();
+        fb.assert().unwrap();
+        let fb = env.new_fact_builder("f2");
+        fb.put("a", 1).unwrap();
+        fb.put("b", "a").unwrap();
+        fb.assert().unwrap();
+        let template = env.find_template("f1").unwrap();
+        let facts : Vec<Fact> = template.into_fact_iter().collect();
+        assert_eq!(facts.len(), 1);
     }
 
 }
