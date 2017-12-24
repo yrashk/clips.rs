@@ -246,6 +246,11 @@ impl<'a> ToTokens for AssertedImpl<'a> {
                       &self.0
                    }
                 }
+                impl<'a> From<#clips_crate::Fact<'a>> for #name<'a> {
+                   fn from(fact: #clips_crate::Fact<'a>) -> Self {
+                      #name (fact)
+                   }
+                }
         });
         tokens.append(quote! {
             impl<'a> #slots for #name<'a> {

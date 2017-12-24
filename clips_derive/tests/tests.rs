@@ -110,3 +110,20 @@ fn recoverable() {
     let rec2 = f.recover();
     assert_eq!(rec2, rec1);
 }
+
+#[derive(Debug, PartialEq, Clone, clips_fact)]
+#[clips(template="tpl")]
+struct Casting {
+    test: u8,
+}
+
+#[test]
+fn casting() {
+    let env = clips::Environment::new().unwrap();
+    env.load_string("(deftemplate tpl (slot test))").unwrap();
+    let fb = env.new_fact_builder("tpl");
+    fb.put("test", 10).unwrap();
+    let fact = fb.assert().unwrap();
+    let casted: AssertedCasting = fact.into();
+    assert_eq!(casted.test(), 10);
+}
