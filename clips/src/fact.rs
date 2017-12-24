@@ -205,6 +205,21 @@ impl<'a> Template<'a> {
     }
 }
 
+use std::ops::Deref;
+
+/// Recovering a struct from something that is a fact
+pub trait Recoverable {
+    type T;
+    fn recover(self) -> Self::T;
+}
+
+/// Anything can be asserted as a fact
+pub trait Assertable<'env> {
+    type T : Deref<Target=Fact<'env>>;
+    type Error;
+    fn assert(self, env: &'env Environment) -> Result<Self::T, Self::Error>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::*;

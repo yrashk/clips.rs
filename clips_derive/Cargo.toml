@@ -1,0 +1,13 @@
+[package]
+name = "clips_derive"
+version = "0.1.0"
+authors = ["Yurii Rashkovskii <yrashk@gmail.com>"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+clips = { version = "~0.1", path = "../clips" }
+syn = "0.11"
+quote = "0.3"
+darling = "0.2"

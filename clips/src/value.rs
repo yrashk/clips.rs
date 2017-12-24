@@ -47,23 +47,43 @@ pub trait ValueAccess : Sized {
     fn value(val: &Value) -> Option<Self>;
 }
 
-impl ValueAccess for i64 {
-    fn value(val: &Value) -> Option<i64> {
-        match val.type_of() {
-            Type::Integer => unsafe { Some((*val.0.__bindgen_anon_1.integerValue).contents) },
-            _ => None,
+macro_rules! value_access_for_int {
+    ($ty: ty) => {
+    impl ValueAccess for $ty {
+        fn value(val: &Value) -> Option<$ty> {
+            match val.type_of() {
+                Type::Integer => unsafe { Some((*val.0.__bindgen_anon_1.integerValue).contents as $ty) },
+                _ => None,
+            }
         }
     }
+    };
 }
 
-impl ValueAccess for f64 {
-    fn value(val: &Value) -> Option<f64> {
-        match val.type_of() {
-            Type::Float => unsafe { Some((*val.0.__bindgen_anon_1.floatValue).contents) },
-            _ => None,
+value_access_for_int!(i8);
+value_access_for_int!(i16);
+value_access_for_int!(i32);
+value_access_for_int!(i64);
+value_access_for_int!(u8);
+value_access_for_int!(u16);
+value_access_for_int!(u32);
+value_access_for_int!(u64);
+
+macro_rules! value_access_for_float {
+    ($ty: ty) => {
+    impl ValueAccess for $ty {
+        fn value(val: &Value) -> Option<$ty> {
+            match val.type_of() {
+                Type::Float => unsafe { Some((*val.0.__bindgen_anon_1.floatValue).contents as $ty) },
+                _ => None,
+            }
         }
     }
+    };
 }
+
+value_access_for_float!(f64);
+value_access_for_float!(f32);
 
 impl<'a> ValueAccess for &'a str {
     fn value(val: &Value) -> Option<&'a str> {
@@ -75,6 +95,13 @@ impl<'a> ValueAccess for &'a str {
             },
             _ => None,
         }
+    }
+}
+
+impl ValueAccess for String {
+    fn value(val: &Value) -> Option<String> {
+        let val: Option<&str> = ValueAccess::value(val);
+        val.and_then(|v| Some(String::from(v))).or(None)
     }
 }
 
@@ -151,6 +178,18 @@ macro_rules! impl_env_allocatable_for_float {
 impl_env_allocatable_for_float!(f32);
 impl_env_allocatable_for_float!(f64);
 
+
+impl<'a> EnvAllocatable for String {
+    fn allocate(&self, env: &super::Environment) -> Value {
+        self.as_str().allocate(env)
+    }
+}
+
+impl<'a, 'b> EnvAllocatable for &'b String {
+    fn allocate(&self, env: &super::Environment) -> Value {
+        self.as_str().allocate(env)
+    }
+}
 
 impl<'a> EnvAllocatable for &'a str {
 
