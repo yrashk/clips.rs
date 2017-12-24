@@ -40,6 +40,26 @@ fn asserting() {
     assert_eq!(f.i0(), fact.i0());
 }
 
+#[derive(clips_fact)]
+#[clips(template="fact")]
+struct Renaming {
+    #[clips(rename="value")]
+    val: String,
+}
+
+#[test]
+fn renaming() {
+    let env = clips::Environment::new().unwrap();
+
+    let fact = Renaming {
+        val: String::from("hello"),
+    };
+
+    env.load_string("(deftemplate fact (slot value))").unwrap();
+
+    assert!(fact.assert(&env).is_ok());
+}
+
 
 #[derive(clips_fact)]
 #[clips(template="ref")]
