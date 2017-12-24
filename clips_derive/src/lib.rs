@@ -54,16 +54,17 @@ impl ReturnType {
          match self {
             &ReturnType::Default => {
                 // primitive types
-                if ty == &syn::parse_type("i8").unwrap() ||
-                    ty == &syn::parse_type("i16").unwrap() ||
-                    ty == &syn::parse_type("i32").unwrap() ||
-                    ty == &syn::parse_type("i64").unwrap() ||
-                    ty == &syn::parse_type("u8").unwrap() ||
-                    ty == &syn::parse_type("u16").unwrap() ||
-                    ty == &syn::parse_type("u32").unwrap() ||
-                    ty == &syn::parse_type("u64").unwrap() ||
-                    ty == &syn::parse_type("f32").unwrap() ||
-                    ty == &syn::parse_type("f64").unwrap() {
+                if ty == &syn::parse_type("bool").unwrap() ||
+                   ty == &syn::parse_type("i8").unwrap()   ||
+                   ty == &syn::parse_type("i16").unwrap()  ||
+                   ty == &syn::parse_type("i32").unwrap()  ||
+                   ty == &syn::parse_type("i64").unwrap()  ||
+                   ty == &syn::parse_type("u8").unwrap()   ||
+                   ty == &syn::parse_type("u16").unwrap()  ||
+                   ty == &syn::parse_type("u32").unwrap()  ||
+                   ty == &syn::parse_type("u64").unwrap()  ||
+                   ty == &syn::parse_type("f32").unwrap()  ||
+                   ty == &syn::parse_type("f64").unwrap()  {
                     return ReturnType::Copy
                 }
                 // reference
