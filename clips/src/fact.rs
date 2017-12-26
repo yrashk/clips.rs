@@ -68,6 +68,7 @@ impl<'a> Drop for FactBuilder<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct Fact<'a>(*mut sys::Fact, &'a Environment);
 
 impl<'a> Fact<'a> {
@@ -238,6 +239,21 @@ mod tests {
         assert_eq!(env.number_of_facts(), 1);
     }
 
+
+    #[test]
+    fn clone_fact() {
+        let env = Environment::new().unwrap();
+        env.load_string(r#"
+        (deftemplate f1 (slot a) (slot b))
+        "#).unwrap();
+        assert_eq!(env.number_of_facts(), 0);
+        let fb = env.new_fact_builder("f1");
+        fb.put("a", 1).unwrap();
+        fb.put("b", "a").unwrap();
+        let fact = fb.assert().unwrap();
+        let fact1 = fact.clone();
+        assert_eq!(i64::value(&fact1.slot("a")), i64::value(&fact.slot("a")))
+    }
 
     #[test]
     fn fact_slot() {
