@@ -57,17 +57,17 @@ OBJS = agenda.o analysis.o argacces.o bload.o bmathfun.o bsave.o \
 all: release
 
 debug : CC = gcc
-debug : CFLAGS = -std=c99 -O0 -g
+debug : CFLAGS = -std=c99 -O0 -fPIC -g
 debug : LDLIBS = -lm
 debug : clips
 
 release : CC = gcc
-release : CFLAGS = -std=c99 -O3 -fno-strict-aliasing
+release : CFLAGS = -std=c99 -O3 -fPIC -fno-strict-aliasing
 release : LDLIBS = -lm
 release : clips
 
 debug_cpp : CC = g++
-debug_cpp : CFLAGS = -x c++ -std=c++11 -O0 -g
+debug_cpp : CFLAGS = -x c++ -std=c++11 -fPIC -O0 -g
 ifeq ($(PLATFORM),Darwin) # macOS
 debug_cpp : WARNINGS += -Wcast-qual
 endif
@@ -75,7 +75,7 @@ debug_cpp : LDLIBS = -lstdc++
 debug_cpp : clips
 
 release_cpp : CC = g++
-release_cpp : CFLAGS = -x c++ -std=c++11 -O3 -fno-strict-aliasing
+release_cpp : CFLAGS = -x c++ -std=c++11 -O3 -fPIC -fno-strict-aliasing
 ifeq ($(PLATFORM),Darwin) # macOS
 release_cpp : WARNINGS += -Wcast-qual
 endif
